@@ -105,7 +105,7 @@ namespace ModelView
             PropertyChanged += ReactToSelectedIndexComboBox;
             ProcessedImageCollection = null;
             _processedImagesAmount = 0;
-            _processResult = new ProcessResultDelegate(processLabeledImage);
+            _processResult = new ProcessResultDelegate(ProcessLabeledImage);
             _nnpModel = new NNP("/Users/macbookpro/autumn_prac/s02170686/mnist-8.onnx", _processResult);
             _nnpModel.PropertyChanged += CheckExecuteCondition;
         }
@@ -132,7 +132,7 @@ namespace ModelView
         }
 
         //await?
-        void processLabeledImage(LabeledImage labeledImage)
+        void ProcessLabeledImage(LabeledImage labeledImage)
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {

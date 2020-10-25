@@ -134,6 +134,7 @@ namespace NNLib
         //obsolete
         public void CreateThreadToProcessDirectory(string dir_name)
         {
+            cts = new CancellationTokenSource();
             Thread processing_thread = new Thread(dir_name => 
             {
                 finishedProcessing = false;
@@ -150,6 +151,7 @@ namespace NNLib
         public async Task ProcessDirectoryAsync(string dir_name)
         {
             IsProcessing = true;
+            cts = new CancellationTokenSource();
             Task processing_task = new Task((object dir_name) => 
                 {
                     finishedProcessing = false;
