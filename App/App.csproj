@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../NNLib/NNLib.csproj" />
+    <PackageReference Include="Avalonia" Version="0.9.12" />
   </ItemGroup>
   
 </Project>

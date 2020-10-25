@@ -8,50 +8,75 @@ using SixLabors.ImageSharp.Processing;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Microsoft.ML.OnnxRuntime;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.ComponentModel;
+using System.Collections.Concurrent;
 
+
+//AutoResetEvent ???
 namespace NNLib
 {
+    public delegate void ProcessResultDelegate(LabeledImage labeledImage);
+
     public class LabeledImage
     {
-        string name;
-        int label;
-        public LabeledImage(string name, int label) 
+        public LabeledImage(string full_name, int label) 
         {
-            this.name = name;
-            this.label = label;
+            FullName = full_name;
+            Label = label;
         }
 
-        public string Name
+        //name including absolute path
+        public string FullName { get; set; }
+        public string Name 
         {
-            get { return name; }
-            set { name = value; }
+            get { return Path.GetFileName(FullName); } 
         }
-        public int Label
+        public int Label { get; set; }
+
+        public override string ToString()
         {
-            get { return label; }
-            set { label = value; }
+            return Path.GetFileName(FullName) + " " + Label.ToString();
         }
     }
-    public class NNP
+
+    //Neural Network Processing
+    public class NNP : INotifyPropertyChanged
     {
         int logProcAmount;
-
         bool finishedProcessing, wasTerminated;
-        public bool FinishedProcessing { get {return finishedProcessing; } }
         Thread[] thread_arr;
-        Thread processing_thread;
+        // Thread processing_thread;
         AutoResetEvent waiter;
         CancellationTokenSource cts;
-        List<LabeledImage> list_of_labeled_images;
-        public NNP() 
+        string model_name;
+        ProcessResultDelegate processResult;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+        public bool FinishedProcessing { get {return finishedProcessing; } }
+
+        bool _isProcessing;
+        public bool IsProcessing 
+        { 
+            get { return _isProcessing; } 
+            set 
+            {
+                _isProcessing = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsProcessing)));
+            }
+        }
+
+        // public ConcurrentQueue<LabeledImage> QueueForLabeledImages;
+        public NNP(string model_name, ProcessResultDelegate processResult) 
         {
             logProcAmount = Environment.ProcessorCount;
             thread_arr = new Thread[logProcAmount];
             waiter = new AutoResetEvent(true);
             cts = new CancellationTokenSource();
-            list_of_labeled_images = null;
-            processing_thread = null;
+            this.processResult = processResult;
             finishedProcessing = false;
+            IsProcessing = false;
+            this.model_name = model_name;
             wasTerminated = false;
         }
 
@@ -76,7 +101,6 @@ namespace NNLib
                     input[0, 0, y, x] = pixelSpan[x].R / 255.0f;
             }
 
-            string model_name = Directory.GetFiles(Directory.GetParent(Directory.GetCurrentDirectory()).FullName, "mnist*").First();
             using var session = new InferenceSession(model_name);
             string input_name = session.InputMetadata.Keys.First();
             var inputs = new List<NamedOnnxValue> { NamedOnnxValue.CreateFromTensor(input_name, input) };
@@ -98,35 +122,54 @@ namespace NNLib
                 if (ct.IsCancellationRequested)
                     break;
 
-                int res = this.LoadAndPredict(name);
-                waiter.WaitOne();
-                list_of_labeled_images.Add(new LabeledImage(name, res));
-                Console.WriteLine($"{Thread.CurrentThread.Name}: image \"{Path.GetFileName(name)}\" is {res}");
-                waiter.Set();
+                int label = this.LoadAndPredict(name);
+                processResult(new LabeledImage(name, label));
+                
+                // waiter.WaitOne();
+                // Console.WriteLine($"{Thread.CurrentThread.Name}: image \"{Path.GetFileName(name)}\" is {res}");
+                // waiter.Set();
             }
         }
 
+        //obsolete
         public void CreateThreadToProcessDirectory(string dir_name)
         {
-            processing_thread = new Thread(dir_name => 
+            Thread processing_thread = new Thread(dir_name => 
             {
                 finishedProcessing = false;
                 wasTerminated = false;
-                list_of_labeled_images = ProcessDirectory((string)dir_name, cts.Token);
+                IsProcessing = true;
+                ProcessDirectory((string)dir_name, cts.Token);
                 finishedProcessing = !wasTerminated;
+                IsProcessing = false;
             });
+
             processing_thread.Start(dir_name);
         }
 
-        public  List<LabeledImage> ProcessDirectory(string dir_name, CancellationToken ct) 
+        public async Task ProcessDirectoryAsync(string dir_name)
+        {
+            IsProcessing = true;
+            Task processing_task = new Task((object dir_name) => 
+                {
+                    finishedProcessing = false;
+                    wasTerminated = false;
+                    ProcessDirectory((string)dir_name, cts.Token);
+                    finishedProcessing = !wasTerminated;
+                }, 
+                dir_name);
+            processing_task.Start();
+            await processing_task;
+            IsProcessing = false;
+        }
+
+        public void ProcessDirectory(string dir_name, CancellationToken ct) 
         {
             string[] file_names = Directory.GetFiles(dir_name, "*.png");
-            list_of_labeled_images = new List<LabeledImage>();
 
             int amount_of_img_per_thread = file_names.Length / thread_arr.Length;
             int img_counter = 0;
             int residue = file_names.Length % thread_arr.Length;
-            //Console.WriteLine(amount_of_img_per_thread);
 
             for (int i = 0; i < thread_arr.Length; i++)
             {
@@ -143,7 +186,6 @@ namespace NNLib
                 else
                     break;
 
-            return list_of_labeled_images;
         }
 
         public void TerminateProcessing()
