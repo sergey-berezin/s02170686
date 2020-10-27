@@ -16,7 +16,8 @@
 
         <DataTemplate x:Key="processedImageTemplate">
             <StackPanel Orientation="Horizontal">
-                <Image Width="30" Height="30" Source="{Binding FullName, Mode=OneWay, Converter={StaticResource variableImage}}"/>
+                <Image Width="30" Height="30" Source="{Binding FullName, Mode=OneWay,
+                       Converter={StaticResource variableImage}}"/>
                 <StackPanel>
                     <TextBlock x:Name="imageNameTextBlock" Text="{Binding Name}"/>
                     <TextBlock x:Name="imageLabelTextBlock" Text="{Binding Label}"/>
