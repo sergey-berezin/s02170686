@@ -1,0 +1,86 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:my_namespace="clr-namespace:View"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="View.MainWindow"
+        Title="SynovyatCorporation" 
+        SizeToContent="WidthAndHeight">
+        <!-- what is that namespaces and CLass -->
+        <!-- xmlns:my_namespace="clr-namespace:View"
+        my_namespace:Class="View.BitmapAssetValueConverter" why is it problem--> 
+
+    <Window.Resources>
+        <my_namespace:BitmapAssetValueConverter x:Key="variableImage"/>
+
+        <DataTemplate x:Key="processedImageTemplate">
+            <StackPanel Orientation="Horizontal">
+                <Image Width="30" Height="30" Source="{Binding FullName, Mode=OneWay,
+                       Converter={StaticResource variableImage}}"/>
+                <StackPanel>
+                    <TextBlock x:Name="imageNameTextBlock" Text="{Binding Name}"/>
+                    <TextBlock x:Name="imageLabelTextBlock" Text="{Binding Label}"/>
+                </StackPanel>
+            </StackPanel>
+        </DataTemplate>
+
+    </Window.Resources>
+
+    <Grid x:Name="mainGrid" ShowGridLines="False" Background="White" Width="1000" Height="600"
+          ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*" 
+          RowDefinitions="*,*,*,*,*,*,*,*,*,*,*,*">
+        
+        <Button x:Name="chooseDirectoryButton" Margin="5,5,5,5"
+                Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="Choose Dir" HorizontalAlignment="Stretch"
+                Height="30" Command="{Binding ChooseDirCommand}"/>
+        
+        <Button x:Name="interuptButton" Margin="5,5,5,5"
+                Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="Interrupt" HorizontalAlignment="Stretch"
+                Height="30" IsVisible="True" Command="{Binding InterruptProcessingCommand}"/>
+
+        <TextBlock x:Name="processedImageTextBlock" 
+                   Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2"
+                   VerticalAlignment="Bottom" Text="Processed Images" IsVisible="False" 
+                   TextAlignment="Center"/>
+
+        <ListBox x:Name="processedImagedListBox"
+                      Grid.Row="1" Grid.Column="2" Grid.RowSpan="6" Grid.ColumnSpan="9"
+                      IsVisible="False" ItemTemplate="{StaticResource processedImageTemplate}"
+                      Items="{Binding ProcessedImageCollection, Mode=TwoWay}">
+        </ListBox>
+
+        <TextBlock x:Name="progressBarTextBlock" Text="Completion" Margin="5,5,5,20"
+                   Grid.Row="7" Grid.Column="2" Grid.ColumnSpan="2"
+                   IsVisible="False" TextAlignment="Center"
+                   VerticalAlignment="Center"/>
+
+        <ProgressBar x:Name="completionProgressBar" Minimum="0" Maximum="100" Value="{Binding ProgressBarValue}"
+                     Grid.Row="7" Grid.Column="4" Grid.ColumnSpan="7"
+                     Margin="5,5,5,20" IsVisible="False"/>
+
+        <TextBlock x:Name="filterComboBoxTextBlock" Text="Choose class"
+                   Grid.Row="0" Grid.Column="11" Grid.ColumnSpan="2"
+                   IsVisible="False" TextAlignment="Center" Margin="5,5,5,0"
+                   VerticalAlignment="Bottom" HorizontalAlignment="Left"/>
+
+        <ComboBox x:Name="classSelectorComboBox" Margin="5,3,5,5" Height="30"
+                  Grid.Row="1" Grid.Column="11" Grid.ColumnSpan="2" VerticalAlignment="Top"
+                  IsVisible="False" SelectedIndex="{Binding SelectedIndexComboBoxProperty, Mode=OneWayToSource}"
+                  Items="{Binding DigitsListComboBox}">
+        </ComboBox>
+
+        <TextBlock x:Name="chosenClassTextBlock" Text="Filtered Images"
+                   Grid.Row="0" Grid.Column="13" Grid.ColumnSpan="2"
+                   IsVisible="False" TextAlignment="Center"
+                   VerticalAlignment="Bottom" HorizontalAlignment="Left"/>
+
+        <ListBox x:Name="chosenClassListBox" Items="{Binding FilteredImageCollection}" IsVisible="False"
+                      Grid.Row="1" Grid.Column="13" Grid.RowSpan="6" Grid.ColumnSpan="6"
+                      ItemTemplate="{StaticResource processedImageTemplate}"/>
+
+    </Grid>
+
+</Window>
