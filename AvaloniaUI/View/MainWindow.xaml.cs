@@ -5,6 +5,7 @@ using ModelView;
 using System.Threading.Tasks;
 using System;
 using Avalonia.Threading;
+using Avalonia.Media;
 
 namespace View
 {
@@ -19,14 +20,16 @@ namespace View
         TextBlock _progressBarTextBlock;
         TextBlock _filterComboBoxTextBlock;
         ProgressBar _completionProgressBar;
+        CheckBox _useDatabaseCheckBox;
 
         public MyAppUIServices(Window window, ComboBox classSelectorComboBox,
                                ListBox processedImagedListBox, ListBox chosenClassListBox,
                                TextBlock processedImageTextBlock, TextBlock chosenClassTextBlock,
                                TextBlock progressBarTextBlock, TextBlock filterComboBoxTextBlock,
-                               ProgressBar completionProgressBar)
+                               ProgressBar completionProgressBar, CheckBox useDatabaseCheckBox)
         {
             _window = window;
+            _useDatabaseCheckBox = useDatabaseCheckBox;
             _classSelectorComboBox = classSelectorComboBox;
             _processedImagedListBox = processedImagedListBox;
             _chosenClassListBox = chosenClassListBox;
@@ -35,6 +38,20 @@ namespace View
             _chosenClassTextBlock = chosenClassTextBlock;
             _progressBarTextBlock = progressBarTextBlock;
             _completionProgressBar = completionProgressBar;
+
+            _useDatabaseCheckBox.Checked += CheckBoxChecked;
+            _useDatabaseCheckBox.Unchecked += CheckBoxUnchecked;
+        }
+
+        void CheckBoxChecked(object obj, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+
+            ((CheckBox)obj).Foreground = Brushes.Green;
+        }
+
+        void CheckBoxUnchecked(object obj, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            ((CheckBox)obj).Foreground = Brushes.Red;
         }
 
         public async Task<string> ShowOpenDialogAsync() 
@@ -91,7 +108,8 @@ namespace View
                                                  this.FindControl<TextBlock>("chosenClassTextBlock"),
                                                  this.FindControl<TextBlock>("progressBarTextBlock"),
                                                  this.FindControl<TextBlock>("filterComboBoxTextBlock"),
-                                                 this.FindControl<ProgressBar>("completionProgressBar"));
+                                                 this.FindControl<ProgressBar>("completionProgressBar"),
+                                                 this.FindControl<CheckBox>("useDatabaseCheckBox"));
             mv = new ModelView.ModelView(app_uiservices);
 
             DataContext = mv;
