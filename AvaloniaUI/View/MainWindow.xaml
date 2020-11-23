@@ -16,8 +16,8 @@
 
         <DataTemplate x:Key="processedImageTemplate">
             <StackPanel Orientation="Horizontal">
-                <Image Width="30" Height="30" Source="{Binding FullName, Mode=OneWay,
-                       Converter={StaticResource variableImage}}"/>
+                <Image Width="30" Height="30" Source="{Binding AvaloniaBitmap, Mode=OneWay}"/>
+                       <!-- Converter={StaticResource variableImage}}"/> -->
                 <StackPanel>
                     <TextBlock x:Name="imageNameTextBlock" Text="{Binding Name}"/>
                     <TextBlock x:Name="imageLabelTextBlock" Text="{Binding Label}"/>
@@ -33,8 +33,8 @@
         
         <Button x:Name="chooseDirectoryButton" Margin="5,5,5,5"
                 Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
-                Content="Choose Dir" HorizontalAlignment="Stretch"
-                Height="30" Command="{Binding ChooseDirCommand}"/>
+                Content="Choose&#x0a;Directory" HorizontalAlignment="Stretch"
+                Height="35" Command="{Binding ChooseDirCommand}"/>
         
         <Button x:Name="interuptButton" Margin="5,5,5,5"
                 Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2"
@@ -43,14 +43,16 @@
 
         <TextBlock x:Name="processedImageTextBlock" 
                    Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2"
-                   VerticalAlignment="Bottom" Text="Processed Images" IsVisible="False" 
+                   VerticalAlignment="Bottom" Text="Processed Images" IsVisible="True" 
                    TextAlignment="Center"/>
 
-        <ListBox x:Name="processedImagedListBox"
-                      Grid.Row="1" Grid.Column="2" Grid.RowSpan="6" Grid.ColumnSpan="9"
-                      IsVisible="False" ItemTemplate="{StaticResource processedImageTemplate}"
-                      Items="{Binding ProcessedImageCollection, Mode=TwoWay}">
-        </ListBox>
+        <Border CornerRadius="2" BorderThickness="2" BorderBrush="Black" IsVisible="True"
+                Grid.Row="1" Grid.Column="2" Grid.RowSpan="6" Grid.ColumnSpan="9">
+            <ListBox x:Name="processedImagedListBox"
+                            IsVisible="True" ItemTemplate="{StaticResource processedImageTemplate}"
+                            Items="{Binding ProcessedImageCollection, Mode=TwoWay}">
+            </ListBox>
+        </Border>
 
         <TextBlock x:Name="progressBarTextBlock" Text="Completion" Margin="5,5,5,20"
                    Grid.Row="7" Grid.Column="2" Grid.ColumnSpan="2"
@@ -63,24 +65,52 @@
 
         <TextBlock x:Name="filterComboBoxTextBlock" Text="Choose class"
                    Grid.Row="0" Grid.Column="11" Grid.ColumnSpan="2"
-                   IsVisible="False" TextAlignment="Center" Margin="5,5,5,0"
+                   IsVisible="True" TextAlignment="Center" Margin="5,5,5,0"
                    VerticalAlignment="Bottom" HorizontalAlignment="Left"/>
 
         <ComboBox x:Name="classSelectorComboBox" Margin="5,3,5,5" Height="30"
                   Grid.Row="1" Grid.Column="11" Grid.ColumnSpan="2" VerticalAlignment="Top"
-                  IsVisible="False" SelectedIndex="{Binding SelectedIndexComboBoxProperty, Mode=OneWayToSource}"
+                  IsVisible="True" SelectedIndex="{Binding SelectedIndexComboBoxProperty, Mode=OneWayToSource}"
                   Items="{Binding DigitsListComboBox}">
         </ComboBox>
 
         <TextBlock x:Name="chosenClassTextBlock" Text="Filtered Images"
                    Grid.Row="0" Grid.Column="13" Grid.ColumnSpan="2"
-                   IsVisible="False" TextAlignment="Center"
+                   IsVisible="True" TextAlignment="Center"
                    VerticalAlignment="Bottom" HorizontalAlignment="Left"/>
 
-        <ListBox x:Name="chosenClassListBox" Items="{Binding FilteredImageCollection}" IsVisible="False"
-                      Grid.Row="1" Grid.Column="13" Grid.RowSpan="6" Grid.ColumnSpan="6"
-                      ItemTemplate="{StaticResource processedImageTemplate}"/>
+        <Border CornerRadius="2" BorderThickness="2" BorderBrush="Black"
+                Grid.Row="1" Grid.Column="13" Grid.RowSpan="6" Grid.ColumnSpan="6">
+            <ListBox x:Name="chosenClassListBox" Items="{Binding FilteredImageCollection}" IsVisible="True"
+                     ItemTemplate="{StaticResource processedImageTemplate}"/>
+        </Border>
 
+        <!-- create animation to the button -->
+        <Border CornerRadius="2" BorderThickness="1" BorderBrush="Black" Margin="3,7,3,7"
+                Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2">
+            <CheckBox x:Name="useDatabaseCheckBox" IsVisible="True"
+                      IsChecked="{Binding UseDataBase, Mode=TwoWay}" Foreground="Red"
+                      VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+                      <TextBlock Text="Use&#x0a;Data Base" TextAlignment="Center"/>
+            </CheckBox>
+        </Border>
+
+        <TextBlock x:Name="dataBaseInfoTextBlock" Text="Data Base Info:"
+                   Grid.Row="8" Grid.Column="2" Grid.ColumnSpan="5"
+                   IsVisible="True" TextAlignment="Center"
+                   VerticalAlignment="Bottom" HorizontalAlignment="Center"/>
+
+        <Border CornerRadius="2" BorderThickness="2" BorderBrush="Black" Margin="0,0,0,7"
+                Grid.Row="9" Grid.Column="2" Grid.RowSpan="3" Grid.ColumnSpan="5">
+            <TextBlock x:Name="dataBaseInfoItselfTextBlock" IsVisible="True" Margin="5,5,5,5"
+                       Text="{Binding TextForDataBaseInfo, Mode=OneWay}"/>
+        </Border>
+
+        <Button x:Name="cleanDataBaseButton" Margin="5,5,5,5"
+                Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="Clean Storage" HorizontalAlignment="Stretch"
+                Height="30" IsVisible="True" Command="{Binding CleanDataBaseCommand}"/>
+        
     </Grid>
 
 </Window>

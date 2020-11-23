@@ -12,7 +12,6 @@ using System.Threading.Tasks;
 using System.ComponentModel;
 using System.Collections.Concurrent;
 
-
 //AutoResetEvent ???
 namespace NNLib
 {
@@ -82,14 +81,15 @@ namespace NNLib
 
         public int LoadAndPredict(string img_name)
         {
-            using var image = Image.Load<Rgb24>(img_name);
-            
+            using var image =  Image.Load<Rgb24>(img_name);
+
             const int TargetWidth = 28;
             const int TargetHeight = 28;
 
             image.Mutate(x =>
             {
-                x.Resize(new ResizeOptions { Size = new Size(TargetWidth, TargetHeight), Mode = ResizeMode.Crop}).Grayscale();
+                x.Resize(new ResizeOptions { Size = new Size(TargetWidth, TargetHeight),
+                                             Mode = ResizeMode.Crop}).Grayscale();
             });
 
             var input = new DenseTensor<float>(new[] { 1, 1, TargetHeight, TargetWidth });
@@ -121,6 +121,7 @@ namespace NNLib
             {
                 if (ct.IsCancellationRequested)
                     break;
+
 
                 int label = this.LoadAndPredict(name);
                 processResult(new LabeledImage(name, label));
@@ -165,9 +166,32 @@ namespace NNLib
             IsProcessing = false;
         }
 
-        public void ProcessDirectory(string dir_name, CancellationToken ct) 
+        public void ProcessDirectory(string dir_name, CancellationToken ct)
         {
             string[] file_names = Directory.GetFiles(dir_name, "*.png");
+            ProcessImagesByNames(file_names, ct);
+        }
+
+        public async Task ProcessImagesByNamesAsync(string[] file_names)
+        {
+            IsProcessing = true;
+            cts = new CancellationTokenSource();
+            Task processing_task = new Task((object file_names) => 
+                {
+                    finishedProcessing = false;
+                    wasTerminated = false;
+                    ProcessImagesByNames((string []) file_names, cts.Token);
+                    finishedProcessing = !wasTerminated;
+                }, 
+                file_names);
+            processing_task.Start();
+            await processing_task;
+            IsProcessing = false;
+        }
+
+        public void ProcessImagesByNames(string[] file_names, CancellationToken ct) 
+        {
+            // string[] file_names = Directory.GetFiles(dir_name, "*.png");
 
             int amount_of_img_per_thread = file_names.Length / thread_arr.Length;
             int img_counter = 0;
