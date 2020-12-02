@@ -1,7 +1,7 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace ModelView.Migrations
+namespace DataBaseEntityFramework.Migrations
 {
     public partial class BaseMigration : Migration
     {

@@ -86,14 +86,10 @@
         </Border>
 
         <!-- create animation to the button -->
-        <Border CornerRadius="2" BorderThickness="1" BorderBrush="Black" Margin="3,7,3,7"
-                Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2">
-            <CheckBox x:Name="useDatabaseCheckBox" IsVisible="True"
-                      IsChecked="{Binding UseDataBase, Mode=TwoWay}" Foreground="Red"
-                      VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
-                      <TextBlock Text="Use&#x0a;Data Base" TextAlignment="Center"/>
-            </CheckBox>
-        </Border>
+        <Button x:Name="upgradeDatabaseStatisticsButton" Margin="5,5,5,5"
+                Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2"
+                Content="Upgrade&#x0a;Statistics" HorizontalAlignment="Stretch"
+                Height="35" IsVisible="True" Command="{Binding UpgradeDatabaseStatistics}"/>
 
         <TextBlock x:Name="dataBaseInfoTextBlock" Text="Data Base Info:"
                    Grid.Row="8" Grid.Column="2" Grid.ColumnSpan="5"
@@ -110,7 +106,16 @@
                 Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2"
                 Content="Clean Storage" HorizontalAlignment="Stretch"
                 Height="30" IsVisible="True" Command="{Binding CleanDataBaseCommand}"/>
-        
+
+        <TextBlock x:Name="serverConnectionTextBlock" Text="Server&#x0a;Connection"
+                   Grid.Row="11" Grid.Column="17" Grid.ColumnSpan="2"
+                   IsVisible="True" TextAlignment="Center" Margin="0,0,0,5"
+                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+        <Image x:Name="serverConnectionImage" 
+               Grid.Row="11" Grid.Column="19" 
+               Height="30" Width="30" />
+
     </Grid>
 
 </Window>
