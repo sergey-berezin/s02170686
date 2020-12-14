@@ -311,27 +311,46 @@ namespace ServerInteractions.ServerDatabase
                                                     List<(string, List<(int, byte[])>)> processed_images_groups,
                                                     out List<int> processed_image_id_list)
         {
+            // Console.WriteLine("form");
             List<NewImageServer> new_images_to_process = new List<NewImageServer>();
             processed_image_id_list = new List<int>();
             int group_counter = 0;
             bool already_in_database;
             foreach(var img in NewImageCollection)
             {
+                // Console.WriteLine("outer");
+
                 if (IsNameInArray(img.Name, found_names))
                 {
+                    // Console.WriteLine("inner");
+
                     byte[] new_byte_image = img.ByteImage;
                     already_in_database = false;
                     int matched_image_id = -1;
                     group_counter = FindProperGroup(img.Name, processed_images_groups);
+                    // Console.WriteLine("found");
 
                     for (int in_group_counter = 0; in_group_counter < processed_images_groups.Count(); in_group_counter++)
+                    {
+                        // Console.WriteLine($"in {in_group_counter}");
+                        // try{
                         if (AreByteArraysEqual(new_byte_image, 
                                                processed_images_groups[group_counter].Item2[in_group_counter].Item2))
                         {
+                            // Console.WriteLine("equal");
                             already_in_database = true;
                             matched_image_id = processed_images_groups[group_counter].Item2[in_group_counter].Item1;
                             break;
                         }
+                        // }
+                        // catch(Exception e)
+                        // {
+                        //     Console.WriteLine($"exception : {e}");
+                        // }
+
+                        // Console.WriteLine(in_group_counter);
+                    }
+                    // Console.WriteLine("decide");
                     
                     if (already_in_database)
                         processed_image_id_list.Add(matched_image_id);
@@ -342,6 +361,7 @@ namespace ServerInteractions.ServerDatabase
                     new_images_to_process.Add(img);
             }
 
+            // Console.WriteLine("form");
             return new_images_to_process;
         }
 
@@ -378,8 +398,9 @@ namespace ServerInteractions.ServerDatabase
                 List<NewImageServer> images_to_process = CreateUnprocessedImages((MyContext)db, 
                                                                             out image_id_were_processed);
 
+                // Console.WriteLine("not added");
                 AddProcessedImagesFromDataBase(image_id_were_processed, (MyContext)db);
-                
+                // Console.WriteLine("added");
                 return images_to_process;
             };
 
@@ -421,6 +442,41 @@ namespace ServerInteractions.ServerDatabase
                 }    
 
             return processed_images;
+        }
+
+        public async Task<List<ProcessedImageContracts>> GetAllImagesForGivenClassFromDB(int class_num)
+        {
+            AutoResetEvent ev = new AutoResetEvent(false);
+            List<ProcessedImageContracts> res = new List<ProcessedImageContracts>();
+
+            _dispatcher.Post(() =>
+            {
+                Task get_class_images_task = new Task(() =>
+                {
+                    Func<ProcessedImageDB, bool> func = a => (a.ImageLabel == class_num);
+                    var query = _currDatabaseContext.ProcessedImages.Include(a => a.AdditionalInfo).Where(func);
+
+                    foreach(var el in query)
+                    {
+                        string img_base64 = Convert.ToBase64String(el.AdditionalInfo.First().ByteImage);
+                        ProcessedImageContracts processed_img = new ProcessedImageContracts(el.ImageName,
+                                                                                            el.ImageLabel,
+                                                                                            img_base64);
+                        res.Add(processed_img);
+                    }
+                    ev.Set();
+                });
+                get_class_images_task.Start();
+
+                return get_class_images_task;
+            });
+
+            Task wait_completion = new Task(() => ev.WaitOne());
+            wait_completion.Start();
+
+            await wait_completion;
+
+            return res;
         }
 
         public void ProcessOrRetrieveImagesFromDB(List<NewImageContracts> new_images)

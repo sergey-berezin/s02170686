@@ -83,7 +83,7 @@ namespace NNLib
         }
 
         // public ConcurrentQueue<LabeledImage> QueueForLabeledImages;
-        public NNP(string model_name, ProcessResultDelegate processResult, int width=30, int height=30) 
+        public NNP(string model_name, ProcessResultDelegate processResult, int width=28, int height=28) 
         {
             logProcAmount = Environment.ProcessorCount;
             thread_arr = new Thread[logProcAmount];

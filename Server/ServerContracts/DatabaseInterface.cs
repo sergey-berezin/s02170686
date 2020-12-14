@@ -14,5 +14,6 @@ namespace ServerContracts.DatabaseInterface
         void InterruptCurrentImageProcessing();
         bool IsCurrentlyProcessingImages();
         List<ProcessedImageContracts> ReturnProcessedImages();
+        Task<List<ProcessedImageContracts>> GetAllImagesForGivenClassFromDB(int clas_num);
     }
 }

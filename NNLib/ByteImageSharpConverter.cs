@@ -11,7 +11,7 @@ namespace NNLib
         public int Height { get; set; }
         public int Width { get; set; }
 
-        public ByteImageSharpConverter(int width=30, int height=30)
+        public ByteImageSharpConverter(int width=28, int height=28)
         {
             Height = height;
             Width = width;

@@ -14,7 +14,7 @@ namespace ModelView
 		public int Height { get; set; }
 		public int Width { get; set; }
 
-		public UIDatabaseTypeConverters(int height=30, int width=30)
+		public UIDatabaseTypeConverters(int height=28, int width=28)
 		{
 			Height = height;
 			Width = width;

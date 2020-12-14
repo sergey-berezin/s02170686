@@ -41,11 +41,9 @@ namespace ASPServer
             }
 
             // app.UseHttpsRedirection();
-
             app.UseRouting();
-
+            app.UseCors(b => b.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
             // app.UseAuthorization();
-
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();

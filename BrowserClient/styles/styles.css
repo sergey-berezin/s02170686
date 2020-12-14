@@ -1,0 +1,94 @@
+header {
+    background-color: white;
+    border: rgb(11, 104, 11);
+    color: black;
+    border-style: none none solid none;
+}
+
+footer {
+    border: rgb(11, 104, 11);
+    border-style: solid none none none;
+    background-color: white;
+    color: black;
+    padding: 20px 0px 0px 10px;
+}
+
+main {
+    background-color: white;
+    color: black;
+}
+
+table .header {
+    border-color: black;
+    border-style: none none solid none;
+}
+
+table .table_elem {
+    padding: 0px 10px;
+}
+
+table .header_left {
+    border-style: none solid solid none;
+}
+
+table .header_right {
+    border-style: none none solid solid;
+}
+
+table {
+    border-collapse: collapse;
+    margin: 20px 0px;
+}
+
+header ul.navigation {
+    list-style-type: none;
+    margin: 5px, 0px, 20px, 10px;
+    padding: 0px;
+}
+
+footer a:link,
+header a:link {
+    color: gray;
+    text-decoration: none;
+    background-color: transparent;
+}
+
+footer a:visited,
+header a:visited {
+    color: gray;
+    background-color: transparent;
+    text-decoration: none;
+}
+
+footer a:hover,
+header a:hover {
+    color: gray;
+    background-color: transparent;
+    text-decoration: underline;
+}
+
+header li.navigation {
+    display: inline;
+    margin: 10px;
+    color: ghostwhite;
+}
+
+form.image_processing_form {
+    border-color: rgb(11, 104, 11);
+    border-style: solid;
+    width: 250px;
+    height: 120px;
+    padding: 10px;
+}
+
+.canvas_for_image {
+    visibility: visible;
+    background-color: white;
+    /* width: 28px; what's wrong with sizes
+    height: 28px; */
+}
+
+.link {
+    background: none;
+    border: none;
+}

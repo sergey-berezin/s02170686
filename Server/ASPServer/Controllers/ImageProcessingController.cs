@@ -52,6 +52,18 @@ namespace ASPServer.Controllers
             return res;
         }
 
+        [HttpGet, Route("get_all_from_class/{class_num:int}")]
+        public async Task<List<ProcessedImageContracts>> GetAllImagesForGivenClass(int class_num)
+        {
+            Console.WriteLine($"Server got Return All Images For Class {class_num} request.");
+
+            var res = await _currDatabes.GetAllImagesForGivenClassFromDB(class_num);
+
+            Console.WriteLine($"Return All Images For Class {class_num} request: Done.");
+
+            return res;
+        }
+
         [HttpGet, Route("empty")]
         public void EmptyRequest()
         {
@@ -100,6 +112,20 @@ namespace ASPServer.Controllers
             return res;
         }
 
+        //change
+        [HttpPost, Route("process_image_browser")]
+        public void ProcessImage([FromBody] NewImageContracts new_image)
+        {
+            Console.WriteLine("Server got Process Image request.");
+
+            List<NewImageContracts> new_img_as_list = new List<NewImageContracts>();
+            new_img_as_list.Add(new_image);
+
+            _currDatabes.ProcessOrRetrieveImagesFromDB(new_img_as_list);
+            
+            Console.WriteLine("Process Image request: done.");
+        }
+
         [HttpPost, Route("start_image_processing")]
         public void StartProcessingRecievedImages(
             [FromBody] List<NewImageContracts> new_images)
@@ -108,7 +134,6 @@ namespace ASPServer.Controllers
 
             _currDatabes.ProcessOrRetrieveImagesFromDB(new_images);
 
-            Console.WriteLine("Image Processing request: Done.");
             Console.WriteLine();
         }
     }
