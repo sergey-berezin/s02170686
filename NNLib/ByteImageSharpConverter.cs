@@ -1,28 +1,25 @@
 using System;
 using System.IO;
-using Avalonia.Media.Imaging;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using SixLabors.ImageSharp.Processing;
-using Avalonia.Platform;
-using Avalonia;
 
-namespace ModelView
+namespace NNLib
 {
-	public class UIDatabaseTypeConverters
-	{
-		public int Height { get; set; }
-		public int Width { get; set; }
+    public class ByteImageSharpConverter
+    {
+        public int Height { get; set; }
+        public int Width { get; set; }
 
-		public UIDatabaseTypeConverters(int height=28, int width=28)
-		{
-			Height = height;
-			Width = width;
-		}
+        public ByteImageSharpConverter(int width=28, int height=28)
+        {
+            Height = height;
+            Width = width;
+        }
 
-		public Bitmap AvaloniaBitmapFromByteImage(byte[] byte_image)
+		public Image<Rgb24> ImageSharpFromByteImage(byte[] byte_image)
 		{
-			using var image = new Image<Rgb24>(Width, Height);
+			Image<Rgb24> image = new Image<Rgb24>(Width, Height);
 
 			int counter = 0;
 			for(int x = 0; x < image.Height; x++)
@@ -38,18 +35,11 @@ namespace ModelView
 				}
 			}
 
-			MemoryStream bitmap_stream = new MemoryStream();
-			image.SaveAsBmp(bitmap_stream);
-			bitmap_stream.Position = 0;
-			Bitmap bitmap = new Bitmap(bitmap_stream);
-
-			return bitmap;
+			return image;
 		}
 
-		//byte image is sequence of sequences of 3 bytes (1-Red, 2-Green, 3-Blue)
-		public byte[] ByteImageFromFile(string file_name, int channels=3)
+        public byte[] ByteImageFromImageSharp(Image<Rgb24> image, int channels=3)
 		{
-			using var image = Image.Load<Rgb24>(file_name);
 			image.Mutate(x =>
             {
 				SixLabors.ImageSharp.Size size = new SixLabors.ImageSharp.Size(Width, Height);
@@ -74,5 +64,5 @@ namespace ModelView
 
 			return byte_image;
 		}
-	}
+    } 
 }

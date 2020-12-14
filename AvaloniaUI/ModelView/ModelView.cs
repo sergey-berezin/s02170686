@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
-using NNLib;
+// using NNLib;
 using System.IO;
 using System.Collections.Concurrent;
 using System.ComponentModel;
@@ -12,8 +12,10 @@ using System.Collections.Specialized;
 using Avalonia.Threading;
 using System.Threading.Tasks.Dataflow;
 using Avalonia.Media.Imaging;
-using Microsoft.EntityFrameworkCore;
-using ModelView.DataBaseClasses;
+using System.Net.Http;
+using ServerContracts;
+using Newtonsoft.Json;
+// using DataBaseEntityFramework;
 
 namespace ModelView
 {
@@ -36,14 +38,15 @@ namespace ModelView
         void IsVisibleProcessedImageViewer(bool value);
         void IsVisibleFilteredImageViewer(bool value);
         void IsVisibleClassFilter(bool value);
+        void GraphicalReactionToServerCondition(string condition);
     }
 
     public class ModelView : INotifyPropertyChanged
     {
         UIServices _uiser;
-        NNP _nnpModel;
         string _workingDir;
-        ProcessResultDelegate _processResult;
+        HttpClient _httpClient;
+        bool _wasImageProcessingTerminated;
 
         int _processedImagesAmount;
         int ProcessedImagesAmount 
@@ -56,18 +59,6 @@ namespace ModelView
             }
         }
 
-        bool _isDatabaseBusy;
-        public bool IsDatabaseBusy
-        {
-            get { return _isDatabaseBusy; }
-            set
-            {
-                _isDatabaseBusy = value;
-                Dispatcher.UIThread.InvokeAsync(() =>
-                    ((RelayCommand)CleanDataBaseCommand).RaiseCanExecuteChanged(this, new EventArgs())
-                );
-            }
-        }
         //who is subscriber?
         public event PropertyChangedEventHandler PropertyChanged;
         public List<string> DigitsListComboBox { get; set; }
@@ -89,6 +80,7 @@ namespace ModelView
         public ICommand ChooseDirCommand { get; set; }
         public ICommand InterruptProcessingCommand { get; set; }
         public ICommand CleanDataBaseCommand { get; set; }
+        public ICommand UpgradeDatabaseStatistics { get; set; }
         
         int _selectedIndexComboBox;
         public int SelectedIndexComboBoxProperty
@@ -116,16 +108,16 @@ namespace ModelView
             } 
         }
 
-        ObservableCollection<ClassCounter> _classCounterForDataBaseCollection;
-        public ObservableCollection<ClassCounter> ClassCounterForDataBaseCollection
-        {
-            get { return _classCounterForDataBaseCollection; }
-            set 
-            {
-                _classCounterForDataBaseCollection = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ClassCounterForDataBaseCollection)));
-            }
-        }
+        // ObservableCollection<ClassCounter> _classCounterForDataBaseCollection;
+        // public ObservableCollection<ClassCounter> ClassCounterForDataBaseCollection
+        // {
+        //     get { return _classCounterForDataBaseCollection; }
+        //     set 
+        //     {
+        //         _classCounterForDataBaseCollection = value;
+        //         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ClassCounterForDataBaseCollection)));
+        //     }
+        // }
 
         string _textForDataBaseInfo;
         public string TextForDataBaseInfo 
@@ -149,7 +141,16 @@ namespace ModelView
             } 
         }
 
-        DataBaseClasses.MyContext _currDataBaseContext;
+        string _serverConnectionInfo;
+        public string ServerConnectionInfo
+        {
+            get { return _serverConnectionInfo; }
+            set
+            {
+                _serverConnectionInfo = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ServerConnectionInfo)));
+            }
+        }
 
         bool _useDataBase;
         public bool UseDataBase 
@@ -163,7 +164,6 @@ namespace ModelView
         }
 
         UIDatabaseTypeConverters _converter;
-        ActionBlock<AvaloniaUILabeledImage> _databaseMailbox;
         string ImagePattern { get; set; }
 
         public ModelView(UIServices uiser, string image_pattern="*.png")
@@ -172,24 +172,52 @@ namespace ModelView
 
             _uiser = uiser;
             ImagePattern = image_pattern;
-            _currDataBaseContext = new MyContext();
-            FillClassCounterWithDataBase();
-            UseDataBase = false;
-            _databaseMailbox = CreateDatabaseMailbox();
+            _httpClient = new HttpClient();
+            _httpClient.BaseAddress = new Uri("http://localhost:5000/image_processing_api/");
+
+            //to check connection with server
+            MakeSafeHttpRequestAsync(() => _httpClient.GetAsync("empty"));
+
+            // get previously processed images
+            ProcessedImageCollection = new ObservableCollection<AvaloniaUILabeledImage>();
+            ProcessedImageCollection.CollectionChanged += RefreshCollection;
+            _ = TakePreviouslyProcessedImagesRequest();
+
             _converter = new UIDatabaseTypeConverters();
             PropertyChanged += ReactToSelectedIndexComboBox;
-            ProcessedImageCollection = null;
             _processedImagesAmount = 0;
-            IsDatabaseBusy = false;
-            _processResult = new ProcessResultDelegate(ProcessLabeledImage);
-            _nnpModel = new NNP("../../mnist-8.onnx", _processResult);
-            _nnpModel.PropertyChanged += CheckExecuteCondition;
         }
 
-        void CheckExecuteCondition(object obj, PropertyChangedEventArgs e)
+        async Task TakePreviouslyProcessedImagesRequest()
         {
-            if (e.PropertyName == nameof(_nnpModel.IsProcessing))
-                ((RelayCommand)InterruptProcessingCommand).RaiseCanExecuteChanged(this, e);
+            var result = await MakeSafeHttpRequestAsync(() => _httpClient.GetAsync("get_previously_processed_images"));
+            var http_response_message = (HttpResponseMessage) result;
+
+            if (http_response_message == null)
+                return;
+
+            string request_body = await http_response_message.Content.ReadAsStringAsync();
+
+            List<ProcessedImageContracts> processed_images = 
+                JsonConvert.DeserializeObject<List<ProcessedImageContracts>>(request_body);
+            
+            foreach (var img in processed_images)
+            {
+                // why do we need incoding or not just pass raw data ???
+                byte[] byte_img = Convert.FromBase64String(img.IncodedImageBase64);
+                Bitmap bitmap = _converter.AvaloniaBitmapFromByteImage(byte_img);
+                AvaloniaUILabeledImage labeledAvImage = new AvaloniaUILabeledImage(img.Name, img.Label, bitmap);
+
+                _processedImagesAmount++;
+                _ = Dispatcher.UIThread.InvokeAsync(() => 
+                {
+                    ProcessedImageCollection.Add(labeledAvImage);
+                    ProcessedImagesAmount += 0;
+                    
+                });
+            }
+
+            Console.WriteLine($"Got previously processed images: {_processedImagesAmount}");
         }
 
         void ReactToSelectedIndexComboBox(object obj, PropertyChangedEventArgs e)
@@ -207,186 +235,83 @@ namespace ModelView
             FilteredImageCollection = query.ToList<AvaloniaUILabeledImage>();
         }
 
-        ActionBlock<AvaloniaUILabeledImage> CreateDatabaseMailbox()
-        {
-            ActionBlock<AvaloniaUILabeledImage> add_block = new ActionBlock<AvaloniaUILabeledImage>(
-            (AvaloniaUILabeledImage labeledAvImage) => 
-            {
-                //creating ProcessedImage object to store in Data Base
-                ProcessedImageDB processed_image = new ProcessedImageDB();
-                processed_image.ImageLabel = labeledAvImage.Label;
-                processed_image.ImageName = labeledAvImage.Name;
-                processed_image.AdditionalInfo = new List<ImageDetailDB>();
-
-                //creating ImageDetails object to store in Data Base
-                ImageDetailDB details = new ImageDetailDB();
-                details.ByteImage = _converter.ByteImageFromFile(labeledAvImage.FullName);
-                details.PrimaryInfo = new List<ProcessedImageDB>();
-
-                //adding links to each other
-                details.PrimaryInfo.Add(processed_image);
-                processed_image.AdditionalInfo.Add(details);
-
-                _currDataBaseContext.Add(processed_image);
-                _currDataBaseContext.Add(details);
-                _currDataBaseContext.SaveChanges();
-
-                if (ProcessedImagesAmount == _totalAmountOfImagesInDirectory)
-                    IsDatabaseBusy = false;
-            });
-
-            return add_block;
-        }
-
-        //await?
-        void ProcessLabeledImage(LabeledImage labeledImage)
-        {
-            Bitmap bitmap = new Bitmap(labeledImage.FullName);
-            AvaloniaUILabeledImage labeledAvImage = new AvaloniaUILabeledImage(labeledImage.FullName,
-                                                                                labeledImage.Label,
-                                                                                bitmap);
-            Dispatcher.UIThread.InvokeAsync(() => 
-            {
-                ProcessedImageCollection.Add(labeledAvImage);
-                ProcessedImagesAmount++;
-
-                if (UseDataBase)
-                {
-                    _databaseMailbox.Post(labeledAvImage);
-                    ClassCounterForDataBaseCollection[labeledAvImage.Label].Amount += 1;
-
-                    FillDataBaseInfo();
-                    
-                    Console.WriteLine($"Data Base added: {labeledAvImage.Name}");
-                }
-            });
-        }
-
         void Init() 
         {
             InitDigits();
             InitCommands();
-            InitClassCounterForDataBase();
+            // InitClassCounterForDataBase();
         }
 
-        void InitClassCounterForDataBase()
-        {
-            for(int i = 0; i < 10; i++)
-                ClassCounterForDataBaseCollection.Add(new ClassCounter(i, 0));
-        }
-
-        void ChangeCounter(int class_id, int amount)
-        {
-            foreach(var el in ClassCounterForDataBaseCollection)
-                if (class_id == el.ClassLabel)
-                {
-                    el.Amount = amount;
-                    break;
-                }
-        }
-
-        void FillDataBaseInfo()
-        {
-            bool have_info_to_display = false;
-            foreach(var el in ClassCounterForDataBaseCollection)
-                if (el.Amount != 0)
-                {
-                    have_info_to_display = true;
-                    break;
-                }
-
-            string text_info = "";
-            if (!have_info_to_display)
-                text_info = "Database is empty.";
-            else
-            {
-                text_info = "Database info of processed image classes:\n";
-                foreach(var el in ClassCounterForDataBaseCollection)
-                    if (el.Amount > 0)
-                        text_info += "\n" + $"   -Class {el.ClassLabel}: Database has {el.Amount} element(s)";
-            }
-
-            TextForDataBaseInfo = text_info;
-            Dispatcher.UIThread.InvokeAsync(() =>
-                ((RelayCommand)CleanDataBaseCommand).RaiseCanExecuteChanged(this, new EventArgs())
-            );
-        }
-
-        void FillClassCounterWithDataBase()
-        {
-            Func<ProcessedImageDB, int> func = a => a.ImageLabel;
-            foreach(var found_class in _currDataBaseContext.ProcessedImages.GroupBy(func))
-                ChangeCounter(found_class.Key, found_class.Count());
-            
-            FillDataBaseInfo();
-            Dispatcher.UIThread.InvokeAsync(() =>
-                ((RelayCommand)CleanDataBaseCommand).RaiseCanExecuteChanged(this, new EventArgs())
-            );
-        }
+        // void InitClassCounterForDataBase()
+        // {
+        //     for(int i = 0; i < 10; i++)
+        //         ClassCounterForDataBaseCollection.Add(new ClassCounter(i, 0));
+        // }
 
         void InitCommands()
         {
             ChooseDirCommand = new RelayCommand(async (object o) => await TryChooseDirectory());
-            InterruptProcessingCommand = new RelayCommand((object o) => TryToInterrupt(),
-                                                          (object o) => CanExecuteInterruptCommand());
-            CleanDataBaseCommand = new RelayCommand(async (object o) => await TryToCleanDataBase(),
-                                                    (object o) => CanExecuteCleanDataBaseCommand());
+            InterruptProcessingCommand = new RelayCommand((object o) => TryToInterrupt());
+            CleanDataBaseCommand = new RelayCommand((object o) => TryToCleanDataBase());
+            UpgradeDatabaseStatistics = new RelayCommand(async (object o) => await TryToGetDatabaseStatistics());
         }
 
-        void RemoveProcessedImageTable()
+        async Task TryToGetDatabaseStatistics()
         {
-            foreach(var db_elem in _currDataBaseContext.ProcessedImages)
-                _currDataBaseContext.ProcessedImages.Remove(db_elem);
+            var result = await MakeSafeHttpRequestAsync(() => _httpClient.GetAsync("statistics_database"));
+
+            if (result == null)
+                return;
+
+            var http_response_message = (HttpResponseMessage)result;
+            TextForDataBaseInfo = await http_response_message.Content.ReadAsStringAsync();
         }
 
-        void RemoveImageDetailsTable()
+        void TryToCleanDataBase()
         {
-            foreach(var db_elem in _currDataBaseContext.ImageDetails)
-                _currDataBaseContext.ImageDetails.Remove(db_elem);
-        }
-
-        async Task TryToCleanDataBase()
-        {
-            Task delete_tables = new Task(() =>
-            {
-                RemoveProcessedImageTable();
-                RemoveImageDetailsTable();
-
-                ClassCounterForDataBaseCollection = new ObservableCollection<ClassCounter>();
-                InitClassCounterForDataBase();
-                FillDataBaseInfo();
-            });
-            delete_tables.Start();
-
-            await delete_tables;
-            _currDataBaseContext.SaveChanges();
-        }
-
-        bool CanExecuteCleanDataBaseCommand()
-        {
-            bool can_press = false;
-            foreach(var el in ClassCounterForDataBaseCollection)
-                if (el.Amount > 0)
-                {
-                    can_press = true;
-                    break;
-                }
-
-            return can_press && !_nnpModel.IsProcessing && !_isDatabaseBusy;
-        }
-
-        bool CanExecuteInterruptCommand()
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-                ((RelayCommand)CleanDataBaseCommand).RaiseCanExecuteChanged(this, new EventArgs())
-            );
-            
-            return _nnpModel.IsProcessing;
+            _ = MakeSafeHttpRequestAsync(() => _httpClient.DeleteAsync("clean_database"));
         }
 
         void TryToInterrupt()
         {
-            _nnpModel.TerminateProcessing();
+            _ = MakeSafeHttpRequestAsync(() => _httpClient.GetAsync("terminate_current_processing"));
+            _wasImageProcessingTerminated = true;
+            _uiser.IsVisibleProgressBar(false);
+        }
+
+        Task<HttpResponseMessage> MakeSafeHttpRequestAsync(Func<Task<HttpResponseMessage>> http_request)
+        {
+            Func<Task<HttpResponseMessage>> func = new Func<Task<HttpResponseMessage>>(async () =>
+            {
+                HttpResponseMessage task_res = null;
+
+                try
+                {
+                    HttpResponseMessage res = await http_request();
+                    task_res = res;
+
+                    _ = Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        // ServerConnectionInfo = "Server: Connected";
+                        _uiser.GraphicalReactionToServerCondition("Connected");
+                    }
+                    );
+                }
+                catch(Exception)
+                {
+                    _ = Dispatcher.UIThread.InvokeAsync(() => 
+                    {
+                        // ServerConnectionInfo = "Server: Disconnected";
+                        _uiser.GraphicalReactionToServerCondition("Disconnected");
+                        _uiser.IsVisibleProgressBar(false);
+                    });
+                }
+
+                return task_res;
+            });
+            Task<HttpResponseMessage> http_request_task = func();
+
+            return http_request_task;
         }
 
         int CountAmountOfImagesInDirectory() 
@@ -399,229 +324,87 @@ namespace ModelView
             return counter;
         }
 
-        string[] GetFileNames(string[] full_path_names)
+        async Task TryToGetAndSaveProcessedImagesHttpRequest()
         {
-            string[] names = new string[full_path_names.Length];
+            var result = await MakeSafeHttpRequestAsync(() => _httpClient.GetAsync("processed_images"));
+            var http_response_message = (HttpResponseMessage) result;
 
-            int counter = 0;
-            foreach(string full_name in full_path_names)
+            if (http_response_message == null)
+                return;
+
+            string request_body = await http_response_message.Content.ReadAsStringAsync();
+
+            List<ProcessedImageContracts> processed_images = 
+                JsonConvert.DeserializeObject<List<ProcessedImageContracts>>(request_body);
+            
+            foreach (var img in processed_images)
             {
-                names[counter] = Path.GetFileName(full_name);
-                counter++;
-            }
+                // why do we need incoding or not just pass raw data ???
+                byte[] byte_img = Convert.FromBase64String(img.IncodedImageBase64);
+                Bitmap bitmap = _converter.AvaloniaBitmapFromByteImage(byte_img);
+                AvaloniaUILabeledImage labeledAvImage = new AvaloniaUILabeledImage(img.Name, img.Label, bitmap);
 
-            return names;
-        }
-
-        bool IsNameInArray(string name, string[] full_image_names)
-        {
-            foreach(string full_name in full_image_names)
-                if (full_name == name)
-                    return true;
-
-            return false;
-        }
-
-        bool IsIdInArray(int id, int[] ids)
-        {
-            foreach(int curr_id in ids)
-                if (id == curr_id)
-                    return true;
-
-            return false;
-        }
-
-        //(group_name, [(id, image itself)])
-        List<(string, List<(int, byte[])>)> CreateProcessedImageGroups(MyContext db, string[] file_names,
-                                                                       out string[] found_names)
-        {
-            Func<ProcessedImageDB, bool> func = a => IsNameInArray(a.ImageName, file_names);
-            var query = db.ProcessedImages.Include(a => a.AdditionalInfo).Where(func);
-
-            List<(string, List<(int, byte[])>)> processed_images_groups = new List<(string, List<(int, byte[])>)>();
-            List<(int, byte[])> images_with_one_name;
-            found_names = new string[query.GroupBy(a => a.ImageName).Count()];
-            int image_counter = 0;
-            foreach(var db_group in query.GroupBy(a => a.ImageName))
-            {
-                images_with_one_name = new List<(int, byte[])>();
-
-                foreach(var db_elem in db_group)
-                    images_with_one_name.Add((db_elem.ImageId, db_elem.AdditionalInfo.First().ByteImage));
-
-                found_names[image_counter] = db_group.Key;
-                image_counter++;
-                processed_images_groups.Add((db_group.Key, images_with_one_name));
-            }
-
-            return processed_images_groups;
-        }
-
-        string[] CreateUnprocessedImageNames(MyContext db, out int[] processed_images_id)
-        {
-            string[] full_file_names = Directory.GetFiles(_workingDir, "*.png");
-            List<string> full_new_names_list;
-            List<int> processed_image_id_list;
-            string[] file_names = GetFileNames(full_file_names);
-
-            string[] found_names;
-            List<(string, List<(int, byte[])>)> processed_images_groups = CreateProcessedImageGroups(db, file_names,
-                                                                                                     out found_names);
-
-            full_new_names_list = FormNamesToProcess(full_file_names, found_names, 
-                                                     processed_images_groups,
-                                                     out processed_image_id_list);
-
-            processed_images_id = processed_image_id_list.ToArray<int>();
-
-            Console.WriteLine($"Need to process: {full_new_names_list.Count()}/{full_file_names.Length}");
-            Console.WriteLine($"Were In Database: {processed_image_id_list.Count}/{full_file_names.Length}");
-
-            return full_new_names_list.ToArray<string>();
-        }
-
-        List<string> FormNamesToProcess(string[] full_file_names, string[] found_names,
-                                        List<(string, List<(int, byte[])>)> processed_images_groups,
-                                        out List<int> processed_image_id_list)
-        {
-            List<string> full_new_names_list = new List<string>();
-            processed_image_id_list = new List<int>();
-            int group_counter = 0;
-            bool already_in_database;
-            foreach(string full_name in full_file_names)
-            {
-                if (IsNameInArray(Path.GetFileName(full_name), found_names))
+                _processedImagesAmount++;
+                _ = Dispatcher.UIThread.InvokeAsync(() => 
                 {
-                    byte[] new_byte_image = _converter.ByteImageFromFile(full_name);
-                    already_in_database = false;
-                    int matched_image_id = -1;
-                    group_counter = FindProperGroup(full_name, processed_images_groups);
-
-                    for (int in_group_counter = 0; in_group_counter < processed_images_groups.Count(); in_group_counter++)
-                        if (AreByteArraysEqual(new_byte_image, 
-                                               processed_images_groups[group_counter].Item2[in_group_counter].Item2))
-                        {
-                            already_in_database = true;
-                            matched_image_id = processed_images_groups[group_counter].Item2[in_group_counter].Item1;
-                            break;
-                        }
-                    
-                    if (already_in_database)
-                        processed_image_id_list.Add(matched_image_id);
-                    else
-                        full_new_names_list.Add(full_name);
-                }
-                else
-                    full_new_names_list.Add(full_name);
-            }
-
-            return full_new_names_list;
-        }
-
-        int FindProperGroup(string full_name, List<(string, List<(int, byte[])>)> groups)
-        {
-            int index = -1;
-            string name = Path.GetFileName(full_name);
-            for (int i = 0; i < groups.Count(); i++)
-                if (name == groups[i].Item1)
-                {
-                    index = i;
-                    break;
-                }
-
-            return index;
-        }
-
-        bool AreByteArraysEqual(byte[] first, byte[] second)
-        {
-            if (first.Length != second.Length)
-                return false;
-
-            for(int i = 0; i < first.Length; i++)
-                if (first[i] != second[i])
-                    return false;
-
-            return true;
-        }
-
-        void AddProcessedImagesFromDataBase(int[] processed_image_id, DataBaseClasses.MyContext db)
-        {
-            Func<ProcessedImageDB, bool> func = a => IsIdInArray(a.ImageId, processed_image_id);
-            var query = db.ProcessedImages.Include(a => a.AdditionalInfo).Where(func);
-            foreach(var db_elem in query)
-            {
-                byte[] byte_image = db_elem.AdditionalInfo.First().ByteImage;
-                Bitmap bitmap = _converter.AvaloniaBitmapFromByteImage(byte_image);
-                AvaloniaUILabeledImage labeled_image = new AvaloniaUILabeledImage(db_elem.ImageName,
-                                                                                  db_elem.ImageLabel,
-                                                                                  bitmap);
-                Dispatcher.UIThread.InvokeAsync(() =>
-                {
-                    ProcessedImagesAmount++;
-                    ProcessedImageCollection.Add(labeled_image);
+                    ProcessedImageCollection.Add(labeledAvImage);
+                    ProcessedImagesAmount += 0;
                 });
             }
 
-            IsDatabaseBusy= false;
+            Console.WriteLine($"Got images: {_processedImagesAmount}/{_totalAmountOfImagesInDirectory}");
         }
 
-        async Task ProcessDirectoryWithoutDataBaseUsage()
+        async Task StartProcessImagesHttpRequest()
         {
-            await _nnpModel.ProcessDirectoryAsync(_workingDir);
-        }
+            string[] full_file_names = Directory.GetFiles(_workingDir, "*.png");
+            List<NewImageContracts> new_images = new List<NewImageContracts>();
 
-        async Task ProcessDirectoryWithDataBaseUsage()
-        {
-            Func<object, string[]> func = (object db) => 
+            foreach (string full_name in full_file_names)
             {
-                int[] image_id_were_processed;
-                string[] full_names_to_process = CreateUnprocessedImageNames((DataBaseClasses.MyContext)db, 
-                                                                              out image_id_were_processed);
+                string img_base64 = Convert.ToBase64String(_converter.ByteImageFromFile(full_name));
+                string name = Path.GetFileName(full_name);
+                new_images.Add(new NewImageContracts(name , img_base64));
+            }
 
-                //debug
-                // Console.WriteLine("Names wer Processed");
-                // foreach(string s in names_were_processed)
-                //     Console.WriteLine(s);
+            var content = JsonConvert.SerializeObject(new_images);
 
-                // Console.WriteLine();
-                // Console.WriteLine("Names to Process");
-                // foreach(string s in full_names_to_process)
-                //     Console.WriteLine(s);
+            var http_content = new StringContent(content);
+            http_content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+            var res = await MakeSafeHttpRequestAsync(() => _httpClient.PostAsync("start_image_processing", http_content));
+            
+            Task try_to_get_processed_images_task = new Task(async () => 
+            {
+                while((ProcessedImagesAmount != _totalAmountOfImagesInDirectory) &&
+                       !_wasImageProcessingTerminated && 
+                       (res != null))
+                    await TryToGetAndSaveProcessedImagesHttpRequest();
+            }
+            );
+            try_to_get_processed_images_task.Start();
 
-                AddProcessedImagesFromDataBase(image_id_were_processed, (DataBaseClasses.MyContext)db);
-
-                return full_names_to_process;
-            };
-
-            Task<string[]> unprocessed_image_task = new Task<string[]>(func, _currDataBaseContext);
-
-            unprocessed_image_task.Start();
-            string[] full_file_names = await unprocessed_image_task;
-            await _nnpModel.ProcessImagesByNamesAsync(full_file_names);
+            await try_to_get_processed_images_task; 
         }
 
         async Task TryChooseDirectory()
         {
             _uiser.IsVisibleProcessedImageViewer(true);
             _uiser.IsVisibleClassFilter(true);
-            ProcessedImageCollection = new ObservableCollection<AvaloniaUILabeledImage>();
-            ProcessedImageCollection.CollectionChanged += RefreshCollection;
+            // ProcessedImageCollection = new ObservableCollection<AvaloniaUILabeledImage>();
+            // ProcessedImageCollection.CollectionChanged += RefreshCollection;
             _workingDir = null;
+            _wasImageProcessingTerminated = false;
             _workingDir = await _uiser.ShowOpenDialogAsync();
             _uiser.IsVisibleProgressBar(true);
 
             if (_workingDir != null) 
             {
+                ProcessedImageCollection = new ObservableCollection<AvaloniaUILabeledImage>();
+                ProcessedImageCollection.CollectionChanged += RefreshCollection;
                 _totalAmountOfImagesInDirectory = CountAmountOfImagesInDirectory();
                 ProcessedImagesAmount = 0;
 
-                if (!UseDataBase)
-                    await ProcessDirectoryWithoutDataBaseUsage();
-                else
-                {
-                    IsDatabaseBusy = true;
-                    await ProcessDirectoryWithDataBaseUsage();
-                }
+                await StartProcessImagesHttpRequest();
             }
             else
                 _uiser.IsVisibleProgressBar(false);
@@ -630,7 +413,7 @@ namespace ModelView
         void InitDigits()
         {
             DigitsListComboBox = new List<string>();
-            ClassCounterForDataBaseCollection = new ObservableCollection<ClassCounter>();
+            // ClassCounterForDataBaseCollection = new ObservableCollection<ClassCounter>();
 
             for (int i = 0; i < 10; i++)
                 DigitsListComboBox.Add(i.ToString());

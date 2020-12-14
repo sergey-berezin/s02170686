@@ -19,23 +19,38 @@ namespace NNLib
 
     public class LabeledImage
     {
-        public LabeledImage(string full_name, int label) 
+        public LabeledImage(string name, int label, byte[] byte_image) 
         {
-            FullName = full_name;
+            Name = name;
             Label = label;
+            ByteImage = byte_image;
         }
 
         //name including absolute path
-        public string FullName { get; set; }
-        public string Name 
-        {
-            get { return Path.GetFileName(FullName); } 
-        }
+        public string Name { get; set; }
         public int Label { get; set; }
+        public byte[] ByteImage { get; set; }
 
         public override string ToString()
         {
-            return Path.GetFileName(FullName) + " " + Label.ToString();
+            return Path.GetFileName(Name) + " " + Label.ToString();
+        }
+    }
+
+    public class NewImage
+    {
+        public NewImage(string name, byte[] byte_image)
+        {
+            Name = name;
+            ByteImage = byte_image;
+        }
+
+        public string Name { get; set; }
+        public byte[] ByteImage { get; set; }
+
+        public override string ToString()
+        {
+            return Path.GetFileName(Name);
         }
     }
 
@@ -50,6 +65,8 @@ namespace NNLib
         CancellationTokenSource cts;
         string model_name;
         ProcessResultDelegate processResult;
+        ByteImageSharpConverter _converter;
+
 
         public event PropertyChangedEventHandler PropertyChanged;
         public bool FinishedProcessing { get {return finishedProcessing; } }
@@ -66,7 +83,7 @@ namespace NNLib
         }
 
         // public ConcurrentQueue<LabeledImage> QueueForLabeledImages;
-        public NNP(string model_name, ProcessResultDelegate processResult) 
+        public NNP(string model_name, ProcessResultDelegate processResult, int width=28, int height=28) 
         {
             logProcAmount = Environment.ProcessorCount;
             thread_arr = new Thread[logProcAmount];
@@ -77,11 +94,12 @@ namespace NNLib
             IsProcessing = false;
             this.model_name = model_name;
             wasTerminated = false;
+            _converter = new ByteImageSharpConverter(width, height);
         }
 
-        public int LoadAndPredict(string img_name)
+        public int LoadAndPredict(Image<Rgb24> image)
         {
-            using var image =  Image.Load<Rgb24>(img_name);
+            // using var image =  Image.Load<Rgb24>(img_name);
 
             const int TargetWidth = 28;
             const int TargetHeight = 28;
@@ -115,16 +133,16 @@ namespace NNLib
             return  Int32.Parse(query.First().Label);
         }
 
-        void ThreadWork(string[] names, CancellationToken ct)
+        void ThreadWork(List<NewImage> new_images, CancellationToken ct)
         {
-            foreach (string name in names)
+            foreach (NewImage new_image in new_images)
             {
                 if (ct.IsCancellationRequested)
                     break;
 
-
-                int label = this.LoadAndPredict(name);
-                processResult(new LabeledImage(name, label));
+                Image<Rgb24> image = _converter.ImageSharpFromByteImage(new_image.ByteImage);
+                int label = this.LoadAndPredict(image);
+                processResult(new LabeledImage(new_image.Name, label, new_image.ByteImage));
                 
                 // waiter.WaitOne();
                 // Console.WriteLine($"{Thread.CurrentThread.Name}: image \"{Path.GetFileName(name)}\" is {res}");
@@ -141,7 +159,7 @@ namespace NNLib
                 finishedProcessing = false;
                 wasTerminated = false;
                 IsProcessing = true;
-                ProcessDirectory((string)dir_name, cts.Token);
+                // ProcessDirectory((string)dir_name, cts.Token);
                 finishedProcessing = !wasTerminated;
                 IsProcessing = false;
             });
@@ -149,61 +167,62 @@ namespace NNLib
             processing_thread.Start(dir_name);
         }
 
-        public async Task ProcessDirectoryAsync(string dir_name)
+        // Changed them for compitability with the first task
+        // public async Task ProcessDirectoryAsync(string dir_name)
+        // {
+        //     IsProcessing = true;
+        //     cts = new CancellationTokenSource();
+        //     Task processing_task = new Task((object dir_name) => 
+        //         {
+        //             finishedProcessing = false;
+        //             wasTerminated = false;
+        //             ProcessDirectory((string)dir_name, cts.Token);
+        //             finishedProcessing = !wasTerminated;
+        //         }, 
+        //         dir_name);
+        //     processing_task.Start();
+        //     await processing_task;
+        //     IsProcessing = false;
+        // }
+
+        // public void ProcessDirectory(string dir_name, CancellationToken ct)
+        // {
+        //     string[] file_names = Directory.GetFiles(dir_name, "*.png");
+        //     ProcessImagesByNames(file_names, ct);
+        // }
+
+        public async Task ProcessImageListAsync(List<NewImage> new_images)
         {
             IsProcessing = true;
             cts = new CancellationTokenSource();
-            Task processing_task = new Task((object dir_name) => 
+            Task processing_task = new Task((object new_images) => 
                 {
                     finishedProcessing = false;
                     wasTerminated = false;
-                    ProcessDirectory((string)dir_name, cts.Token);
+                    ProcessImageList((List<NewImage>) new_images, cts.Token);
                     finishedProcessing = !wasTerminated;
                 }, 
-                dir_name);
+                new_images);
             processing_task.Start();
             await processing_task;
             IsProcessing = false;
         }
 
-        public void ProcessDirectory(string dir_name, CancellationToken ct)
-        {
-            string[] file_names = Directory.GetFiles(dir_name, "*.png");
-            ProcessImagesByNames(file_names, ct);
-        }
-
-        public async Task ProcessImagesByNamesAsync(string[] file_names)
-        {
-            IsProcessing = true;
-            cts = new CancellationTokenSource();
-            Task processing_task = new Task((object file_names) => 
-                {
-                    finishedProcessing = false;
-                    wasTerminated = false;
-                    ProcessImagesByNames((string []) file_names, cts.Token);
-                    finishedProcessing = !wasTerminated;
-                }, 
-                file_names);
-            processing_task.Start();
-            await processing_task;
-            IsProcessing = false;
-        }
-
-        public void ProcessImagesByNames(string[] file_names, CancellationToken ct) 
+        public void ProcessImageList(List<NewImage> new_images, CancellationToken ct) 
         {
             // string[] file_names = Directory.GetFiles(dir_name, "*.png");
 
-            int amount_of_img_per_thread = file_names.Length / thread_arr.Length;
+            int amount_of_img_per_thread = new_images.Count / thread_arr.Length;
             int img_counter = 0;
-            int residue = file_names.Length % thread_arr.Length;
+            int residue = new_images.Count % thread_arr.Length;
 
             for (int i = 0; i < thread_arr.Length; i++)
             {
-                thread_arr[i] = new Thread(obj_names => ThreadWork((string[])obj_names, ct));
+                thread_arr[i] = new Thread(thread_new_images => ThreadWork((List<NewImage>)thread_new_images, ct));
                 thread_arr[i].Name = "Thread" + i.ToString();
-                thread_arr[i].Start(this.CreateImagesNamesForThread(file_names, ref residue,
-                                                                    amount_of_img_per_thread,
-                                                                    ref img_counter));
+                thread_arr[i].Start(this.CreateImagesForThread(new_images, ref residue,
+                                                               amount_of_img_per_thread,
+                                                               ref img_counter));
             }
 
             for (int i = 0; i < thread_arr.Length; i++)
@@ -211,7 +230,6 @@ namespace NNLib
                     thread_arr[i].Join();
                 else
                     break;
-
         }
 
         public void TerminateProcessing()
@@ -220,8 +238,8 @@ namespace NNLib
             wasTerminated = true;
         }
 
-        string[] CreateImagesNamesForThread(string[] file_names, ref int residue,
-                                            int amount_of_images, ref int img_counter)
+        List<NewImage> CreateImagesForThread(List<NewImage> new_images, ref int residue,
+                                       int amount_of_images, ref int img_counter)
         {
             if (residue > 0)
             {
@@ -229,9 +247,9 @@ namespace NNLib
                 residue--;
             }
             
-            string[] images_for_thread = new string[amount_of_images];
+            List<NewImage> images_for_thread = new List<NewImage>();
             for (int j = 0; j < amount_of_images; j++)
-                images_for_thread[j] = file_names[img_counter + j];
+                images_for_thread.Add(new_images[img_counter + j]);
 
             img_counter += amount_of_images;
 

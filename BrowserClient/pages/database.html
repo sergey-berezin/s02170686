@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+
+<head>
+    <title>Synovyat Corporation</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+    <!-- <script src="/Users/macbookpro/autumn_prac/s02170686/BrowserClient/scripts_js/jquery.js"></script> -->
+    <!-- <script src="../scripts_js/require.js"></script> -->
+    <script src="/Users/macbookpro/autumn_prac/s02170686/BrowserClient/scripts_js/bundle.js"></script>
+</head>
+
+<body>
+    <header>
+        <nav>
+            <ul class="navigation">
+                <li class="navigation"><a href="index.html">Home</a></li>
+                <li class="navigation"><a href="database.html">Database</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Database</h1>
+        <p>
+            Here you can view and process images
+        </p>
+
+        <!-- Download from disk -->
+
+        <form class="image_processing_form" action="">
+            <label for="image_name_explorer">Choose file:</label>
+            </br>
+            <input id="image_name_explorer" type="file">
+            </br>
+            <canvas id="chosen_image_canvas" width="28px" height="28px" class="canvas_for_image"></canvas>
+            <label id="image_label" for="choosen_image_canvas"></label>
+            </br>
+            </br>
+            <input id="process_image_button" type="button" value="Process Image">
+            <label id="is_image_ready_label" for="process_image_button"></label>
+        </form>
+
+        </br>
+        <input id="database_info_button" type="button" value="Get Database Info">
+
+        <!-- Images in database -->
+        <h3>Database Info</h3>
+        <table id="database_table">
+            <tr class="header">
+                <th class="table_elem">Current classes</th>
+                <th class="table_elem">Amount in database</th>
+            </tr>
+            <tr>
+                <td class="table_elem">-</td>
+                <td class="table_elem">-</td>
+            </tr>
+        </table>
+
+        <h3>Images Info</br>For Chosen Class</h3>
+        <table id="images_table">
+            <tr class="header">
+                <th class="table_elem">Image</th>
+                <th class="table_elem">Name</th>
+            </tr>
+            <tr>
+                <td class="table_elem">-</td>
+                <td class="table_elem">-</td>
+            </tr>
+        </table>
+    </main>
+
+    <footer>
+        How to contact us: <a href="http://duma.gov.ru">Click</a>
+    </footer>
+
+</body>

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
-namespace ModelView.DataBaseClasses
+namespace DataBaseEntityFramework
 {
-	class ProcessedImageDB
+	public class ProcessedImageDB
 	{
 		[Key]
 		public int ImageId { get; set; }
@@ -15,7 +15,7 @@ namespace ModelView.DataBaseClasses
 	}
 
 	//how does he store byte image
-	class ImageDetailDB
+	public class ImageDetailDB
 	{
 		[Key]
 		public int ImageDetailId { get; set; }
@@ -25,12 +25,12 @@ namespace ModelView.DataBaseClasses
 		public ICollection<ProcessedImageDB> PrimaryInfo { get; set; } 
 	}
 
-	class MyContext : DbContext
+	public class MyContext : DbContext
 	{
 		public DbSet<ProcessedImageDB> ProcessedImages { get; set; }
 		public DbSet<ImageDetailDB> ImageDetails { get; set;}
 
 		protected override void OnConfiguring(DbContextOptionsBuilder o)
-			=> o.UseSqlite("Data Source=../ModelView/DataBase.db");
+			=> o.UseSqlite("Data Source=../../DataBaseEntityFramework/DataBase.db");
 	}
 }

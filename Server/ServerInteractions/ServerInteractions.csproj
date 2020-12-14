@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <LangVersion>8.0</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="5.0.0" />
+    <ProjectReference Include="../../NNLib/NNLib.csproj" />
+    <ProjectReference Include="../ServerContracts/ServerContracts.csproj" />
+    <!-- <ProjectReference Include="../ASPServer/ASPServer.csproj" /> -->
+    <ProjectReference Include="../../DataBaseEntityFramework/DataBaseEntityFramework.csproj"/>
+  </ItemGroup>
+</Project>

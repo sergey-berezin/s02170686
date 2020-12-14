@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System;
 using Avalonia.Threading;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 
 namespace View
 {
@@ -19,17 +20,17 @@ namespace View
         TextBlock _chosenClassTextBlock;
         TextBlock _progressBarTextBlock;
         TextBlock _filterComboBoxTextBlock;
+        Image _serverConnectionImage;
         ProgressBar _completionProgressBar;
-        CheckBox _useDatabaseCheckBox;
 
         public MyAppUIServices(Window window, ComboBox classSelectorComboBox,
                                ListBox processedImagedListBox, ListBox chosenClassListBox,
                                TextBlock processedImageTextBlock, TextBlock chosenClassTextBlock,
                                TextBlock progressBarTextBlock, TextBlock filterComboBoxTextBlock,
-                               ProgressBar completionProgressBar, CheckBox useDatabaseCheckBox)
+                               ProgressBar completionProgressBar, Image serverConnectionImage)
         {
             _window = window;
-            _useDatabaseCheckBox = useDatabaseCheckBox;
+            _serverConnectionImage = serverConnectionImage;
             _classSelectorComboBox = classSelectorComboBox;
             _processedImagedListBox = processedImagedListBox;
             _chosenClassListBox = chosenClassListBox;
@@ -38,20 +39,16 @@ namespace View
             _chosenClassTextBlock = chosenClassTextBlock;
             _progressBarTextBlock = progressBarTextBlock;
             _completionProgressBar = completionProgressBar;
-
-            _useDatabaseCheckBox.Checked += CheckBoxChecked;
-            _useDatabaseCheckBox.Unchecked += CheckBoxUnchecked;
         }
 
-        void CheckBoxChecked(object obj, Avalonia.Interactivity.RoutedEventArgs e)
+        public void GraphicalReactionToServerCondition(string condition)
         {
-
-            ((CheckBox)obj).Foreground = Brushes.Green;
-        }
-
-        void CheckBoxUnchecked(object obj, Avalonia.Interactivity.RoutedEventArgs e)
-        {
-            ((CheckBox)obj).Foreground = Brushes.Red;
+            if (condition == "Connected")
+                _serverConnectionImage.Source = 
+                    new Bitmap("pics/check_ok.png");
+            if (condition == "Disconnected")
+                _serverConnectionImage.Source = 
+                    new Bitmap("pics/check_no.png");
         }
 
         public async Task<string> ShowOpenDialogAsync() 
@@ -109,7 +106,7 @@ namespace View
                                                  this.FindControl<TextBlock>("progressBarTextBlock"),
                                                  this.FindControl<TextBlock>("filterComboBoxTextBlock"),
                                                  this.FindControl<ProgressBar>("completionProgressBar"),
-                                                 this.FindControl<CheckBox>("useDatabaseCheckBox"));
+                                                 this.FindControl<Image>("serverConnectionImage"));
             mv = new ModelView.ModelView(app_uiservices);
 
             DataContext = mv;
